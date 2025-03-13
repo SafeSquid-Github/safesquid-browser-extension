@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Tab Traffic Logger",
+    "version": "1.0",
+    "description": "Logs web traffic from a specific tab and lets you download the log file.",
+    "permissions": [
+      "webRequest",
+      "tabs",
+      "downloads"
+    ],
+    "host_permissions": ["<all_urls>"],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup.html",
+      "default_title": "Traffic Logger"
+    }
+  }
