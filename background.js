@@ -1,5 +1,6 @@
 let tabInfo = new Map();
 let securityViolations = new Map();
+let consoleLogs = new Map();
 
 // Track tab updates and initial states
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -41,6 +42,44 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             });
           }
         });
+
+        // Add console log capturing
+        const originalConsole = {
+          log: console.log,
+          error: console.error,
+          warn: console.warn,
+          info: console.info
+        };
+
+        function sendConsoleLog(type, args) {
+          chrome.runtime.sendMessage({
+            action: 'consoleLog',
+            log: {
+              type,
+              message: Array.from(args).map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+              ).join(' '),
+              timestamp: Date.now()
+            }
+          });
+        }
+
+        console.log = function(...args) {
+          sendConsoleLog('log', args);
+          originalConsole.log.apply(console, args);
+        };
+        console.error = function(...args) {
+          sendConsoleLog('error', args);
+          originalConsole.error.apply(console, args);
+        };
+        console.warn = function(...args) {
+          sendConsoleLog('warn', args);
+          originalConsole.warn.apply(console, args);
+        };
+        console.info = function(...args) {
+          sendConsoleLog('info', args);
+          originalConsole.info.apply(console, args);
+        };
       }
     }).catch(() => {}); // Ignore errors for pages where we can't inject
   }
@@ -61,7 +100,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabsWithViolations = Array.from(securityViolations.keys()).map(tabId => ({
       tabId,
       info: tabInfo.get(parseInt(tabId)),
-      violations: securityViolations.get(tabId) || []
+      violations: securityViolations.get(tabId) || [],
+      logs: consoleLogs.get(tabId) || []
     }));
     sendResponse({ tabs: tabsWithViolations });
   } else if (message.action === "securityViolation") {
@@ -72,6 +112,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     securityViolations.get(tabId).push(message.violation);
   } else if (message.action === "sandboxError") {
     console.log('Sandbox Error:', message.error);
+  } else if (message.action === "consoleLog") {
+    const tabId = sender.tab.id;
+    if (!consoleLogs.has(tabId)) {
+      consoleLogs.set(tabId, []);
+    }
+    consoleLogs.get(tabId).push(message.log);
   }
   return true;
 });
