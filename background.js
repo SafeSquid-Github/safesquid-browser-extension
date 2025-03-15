@@ -1,6 +1,7 @@
 let logs = new Map();
 let pendingRequests = new Map();
 let tabInfo = new Map();
+let securityViolations = new Map();
 
 // Track tab updates and initial states
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -9,6 +10,26 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       url: tab.url,
       title: tab.title || 'Untitled'
     });
+  }
+  if (changeInfo.status === 'complete') {
+    chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        document.addEventListener('securitypolicyviolation', (e) => {
+          chrome.runtime.sendMessage({
+            action: 'securityViolation',
+            violation: {
+              blockedURI: e.blockedURI,
+              violatedDirective: e.violatedDirective,
+              originalPolicy: e.originalPolicy,
+              disposition: e.disposition,
+              documentURI: e.documentURI,
+              timeStamp: e.timeStamp
+            }
+          });
+        });
+      }
+    }).catch(() => {}); // Ignore errors for pages where we can't inject
   }
 });
 
@@ -60,6 +81,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       count: logs.get(tabId).length
     }));
     sendResponse({ tabs: tabsWithLogs });
+  } else if (message.action === "securityViolation") {
+    const tabId = sender.tab.id;
+    if (!securityViolations.has(tabId)) {
+      securityViolations.set(tabId, []);
+    }
+    securityViolations.get(tabId).push(message.violation);
+  } else if (message.action === "downloadSecurityViolations") {
+    const tabId = message.tabId;
+    let outputData = {};
+    
+    if (tabId) {
+      outputData = {
+        tabId: tabId,
+        tabInfo: tabInfo.get(tabId) || { url: "unknown", title: "Unknown Tab" },
+        violations: securityViolations.get(tabId) || []
+      };
+    } else {
+      outputData = {
+        tabs: Array.from(securityViolations.entries()).map(([tabId, violations]) => ({
+          tabId: tabId,
+          tabInfo: tabInfo.get(parseInt(tabId)) || { url: "unknown", title: "Unknown Tab" },
+          violations: violations
+        }))
+      };
+    }
+    
+    const jsonString = JSON.stringify(outputData, null, 2);
+    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(jsonString);
+    chrome.downloads.download({
+      url: dataUrl,
+      filename: `security_violations_${tabId || 'all'}.json`
+    });
+    sendResponse({ status: "Security violations download started" });
   }
   return true;
 });

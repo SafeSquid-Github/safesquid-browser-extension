@@ -34,5 +34,12 @@ document.getElementById("downloadAllBtn").addEventListener("click", () => {
   );
 });
 
+document.getElementById("downloadSecurityBtn").addEventListener("click", () => {
+  chrome.runtime.sendMessage(
+    { action: "downloadSecurityViolations" },
+    response => document.getElementById("status").innerText = response.status
+  );
+});
+
 // Update tabs list when popup opens
 document.addEventListener('DOMContentLoaded', updateTabsList);
