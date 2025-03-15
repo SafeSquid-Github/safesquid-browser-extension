@@ -1,45 +1,27 @@
-function updateTabsList() {
-  chrome.runtime.sendMessage({ action: "getTabsWithLogs" }, (response) => {
+function updateViolationsList() {
+  chrome.runtime.sendMessage({ action: "getTabsWithViolations" }, (response) => {
     const tabsList = document.getElementById("tabsList");
     tabsList.innerHTML = '';
     
     response.tabs.forEach(tab => {
       const tabDiv = document.createElement('div');
       tabDiv.className = 'tab-item';
+      let violationsHtml = tab.violations.map(v => `
+        <div class="violation-item">
+          <div>Blocked URI: ${v.blockedURI}</div>
+          <div>Directive: ${v.violatedDirective}</div>
+          <div>Time: ${new Date(v.timeStamp).toLocaleTimeString()}</div>
+        </div>
+      `).join('');
+      
       tabDiv.innerHTML = `
         <div class="tab-title">${tab.info?.title || 'Unknown Tab'}</div>
-        <div>Requests logged: ${tab.count}</div>
-        <button class="download-tab" data-tabid="${tab.tabId}">Download Tab Logs</button>
+        <div>Violations: ${tab.violations.length}</div>
+        ${violationsHtml}
       `;
       tabsList.appendChild(tabDiv);
-    });
-
-    // Add click handlers for tab download buttons
-    document.querySelectorAll('.download-tab').forEach(button => {
-      button.addEventListener('click', () => {
-        const tabId = parseInt(button.dataset.tabid);
-        chrome.runtime.sendMessage(
-          { action: "downloadLogs", tabId: tabId },
-          response => document.getElementById("status").innerText = response.status
-        );
-      });
     });
   });
 }
 
-document.getElementById("downloadAllBtn").addEventListener("click", () => {
-  chrome.runtime.sendMessage(
-    { action: "downloadLogs" },
-    response => document.getElementById("status").innerText = response.status
-  );
-});
-
-document.getElementById("downloadSecurityBtn").addEventListener("click", () => {
-  chrome.runtime.sendMessage(
-    { action: "downloadSecurityViolations" },
-    response => document.getElementById("status").innerText = response.status
-  );
-});
-
-// Update tabs list when popup opens
-document.addEventListener('DOMContentLoaded', updateTabsList);
+document.addEventListener('DOMContentLoaded', updateViolationsList);

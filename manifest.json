@@ -1,12 +1,10 @@
 {
     "manifest_version": 3,
-    "name": "Tab Traffic Logger",
+    "name": "Security Violations Logger",
     "version": "1.0",
-    "description": "Logs web traffic from a specific tab and lets you download the log file.",
+    "description": "Logs Content Security Policy violations from tabs",
     "permissions": [
-      "webRequest",
       "tabs",
-      "downloads",
       "scripting"
     ],
     "host_permissions": ["<all_urls>"],
@@ -15,6 +13,6 @@
     },
     "action": {
       "default_popup": "popup.html",
-      "default_title": "Traffic Logger"
+      "default_title": "Security Violations Logger"
     }
   }
