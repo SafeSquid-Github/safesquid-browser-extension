@@ -26,6 +26,21 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
             }
           });
         });
+
+        window.addEventListener('error', (e) => {
+          if (e.message.includes('sandboxed')) {
+            chrome.runtime.sendMessage({
+              action: 'sandboxError',
+              error: {
+                message: e.message,
+                url: e.filename,
+                line: e.lineno,
+                column: e.colno,
+                error: e.error
+              }
+            });
+          }
+        });
       }
     }).catch(() => {}); // Ignore errors for pages where we can't inject
   }
@@ -55,6 +70,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       securityViolations.set(tabId, []);
     }
     securityViolations.get(tabId).push(message.violation);
+  } else if (message.action === "sandboxError") {
+    console.log('Sandbox Error:', message.error);
   }
   return true;
 });
